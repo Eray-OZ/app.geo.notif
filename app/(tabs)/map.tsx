@@ -1,14 +1,13 @@
-import { StyleSheet, ActivityIndicator, View, Text } from 'react-native';
+import { StyleSheet, ActivityIndicator, StatusBar } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import * as Location from 'expo-location';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { LocationObject } from 'expo-location';
-import MapView from 'react-native-maps';
+import MapView, {PROVIDER_GOOGLE, Marker} from 'react-native-maps';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
-
-
+import { LatLng } from 'react-native-maps';
 
 
 
@@ -25,8 +24,18 @@ export default function Map() {
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
+  const [selectedLocation, setSelectedLocation] = useState<LatLng | null>(null);
 
+
+  const handleMapPress = (event: any) => {
+  console.log("Map pressed!"); 
+  const coords = event.nativeEvent.coordinate;
+  if (coords) {
+    console.log("Lat:", coords.latitude);
+    console.log("Long:", coords.longitude);
+    setSelectedLocation(coords);
+  }
+};
 
 
   useEffect(() => {
@@ -68,6 +77,8 @@ export default function Map() {
 
 
     <ThemedView className="flex-1 items-center justify-center p-4">
+
+      <StatusBar barStyle="light-content" />
       
       {errorMsg ? (
         <ThemedText>{errorMsg}</ThemedText>
@@ -78,24 +89,23 @@ export default function Map() {
       (
         <MapView
           style={styles.map}
+          provider={PROVIDER_GOOGLE}
           initialRegion={{
             latitude: location?.coords.latitude,
             longitude: location?.coords.longitude,
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
           }}
-          showsUserLocation={!!location} 
-        />
+          showsUserLocation={!!location}
+          onPress={handleMapPress}
+        >
+        <Marker coordinate={selectedLocation!}/>
+        </MapView>
+
 
         
       )}
-    <GestureHandlerRootView style={styles.container}>
-      <BottomSheet snapPoints={snapPoints}>
-        <View>
-          <Text>Bu bir alt sayfa içeriğidir.</Text>
-        </View>
-      </BottomSheet>
-      </GestureHandlerRootView>
+ 
     </ThemedView>
   );
 }
