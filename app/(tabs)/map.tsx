@@ -5,35 +5,50 @@ import * as Location from 'expo-location';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { LocationObject } from 'expo-location';
 import MapView, {PROVIDER_GOOGLE, Marker} from 'react-native-maps';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { LatLng } from 'react-native-maps';
+
+
+import Geolocation from 'react-native-geolocation-service';
+import { debounce } from 'lodash';
+
 
 
 
 
 export default function Map() {
 
-    const bottomSheetRef = useRef<BottomSheet>(null);
-
-    const snapPoints = useMemo ( () => ['25%', '50%', '70%', '100%'], []);
-
-
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo ( () => ['25%', '50%', '70%', '100%'], []);
 
 
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<LatLng | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<LatLng | null>(location ? location.coords : null);
 
 
-  const handleMapPress = (event: any) => {
+
+
+  const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_MAPS_API_KEY;
+  const [address, setAddress] = useState('');
+  const [loadingAddress, setLoadingAddress] = useState(false);
+  const [query, setQuery] = useState('');
+  const [predictions, setPredictions] = useState([]);
+
+
+
+  
+
+
+  const handleMapPress = async (event: any) => {
   console.log("Map pressed!"); 
   const coords = event.nativeEvent.coordinate;
   if (coords) {
     console.log("Lat:", coords.latitude);
     console.log("Long:", coords.longitude);
     setSelectedLocation(coords);
+    reverseGeocodeDebounced(coords.latitude, coords.longitude);
   }
 };
 
@@ -60,6 +75,7 @@ export default function Map() {
           setLocation(loc);
         }
       );
+
     }
     startLocationTracking();
     return () => {
@@ -70,6 +86,49 @@ export default function Map() {
   }, []); 
 
 
+
+
+
+   // Debounced reverse geocode (called onRegionChangeComplete)
+  const reverseGeocodeDebounced = useCallback(
+    debounce(async (lat, lng) => {
+      if (!GOOGLE_API_KEY) {
+        setAddress('');
+        return;
+      }
+      setLoadingAddress(true);
+      try {
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_API_KEY}`,
+        );
+
+        const json = await res.json();
+        if (
+          json.status === 'OK' &&
+          Array.isArray(json.results) &&
+          json.results.length > 0
+        ) {
+          setAddress(json.results[0].formatted_address);
+          console.log('Address:', json.results[0].formatted_address);
+        } else {
+          setAddress('');
+        }
+      } catch (e) {
+        setAddress('');
+      } finally {
+        setLoadingAddress(false);
+      }
+    }, 700),
+    [],
+  );
+
+
+
+
+
+
+
+  
 
 
 
@@ -99,7 +158,9 @@ export default function Map() {
           showsUserLocation={!!location}
           onPress={handleMapPress}
         >
+          { selectedLocation != null && (
         <Marker coordinate={selectedLocation!}/>
+           )}
         </MapView>
 
 
