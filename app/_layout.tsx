@@ -6,7 +6,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import * as Location from 'expo-location/build/Location';
-
+import * as TaskManager from 'expo-task-manager';
 
 
 
