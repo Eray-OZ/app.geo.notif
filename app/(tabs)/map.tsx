@@ -1,4 +1,4 @@
-import { StyleSheet, ActivityIndicator, StatusBar, TextInput, TouchableOpacity, FlatList, Image} from 'react-native';
+import { StyleSheet, ActivityIndicator, StatusBar, TextInput, TouchableOpacity, FlatList, Button} from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import * as Location from 'expo-location';
@@ -6,19 +6,18 @@ import { useEffect, useState, useMemo, useCallback, useRef, SetStateAction } fro
 import { LocationObject } from 'expo-location';
 import MapView, {PROVIDER_GOOGLE, Marker} from 'react-native-maps';
 import { LatLng } from 'react-native-maps';
-
-
-import Geolocation from 'react-native-geolocation-service';
 import { debounce } from 'lodash';
 
 
 
+import {onDisplayNotification} from '../_layout';
 
 
 export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: number; lng: number }; address: string }) => void }) {
 
- 
 
+
+ 
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -63,7 +62,7 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
     async function startLocationTracking() {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setErrorMsg('Konum izni reddedildi.');
+        setErrorMsg('Permission to access location was denied.');
         return; 
       }
       let lastKnownLocation = await Location.getLastKnownPositionAsync();
@@ -192,8 +191,6 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
 
 
   return (
-
-
     <ThemedView className="flex-1 items-center justify-center p-4">
 
       <StatusBar barStyle="light-content" />
@@ -205,8 +202,6 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
         <ActivityIndicator size="large" color="#0000ff" />
       ) :
       (
-
-
         <ThemedView style={{ top:30}}>
           <ThemedView style={styles.searchRow}>
           <TextInput
@@ -257,6 +252,7 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
             reverseGeocodeDebounced(coordinate.latitude, coordinate.longitude);
             setQuery(name);
           }}
+          ref={mapRef}
         >
           { selectedLocation != null && (
         <Marker coordinate={selectedLocation}/>
@@ -281,6 +277,9 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
             </>
           )}
         </ThemedView>
+
+
+
         <TouchableOpacity
           style={styles.confirmBtn}
           onPress={confirmLocation}
