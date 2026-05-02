@@ -2,6 +2,7 @@ import { StyleSheet, ActivityIndicator, StatusBar, TextInput, TouchableOpacity, 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import * as Location from 'expo-location';
+import { setupGeofence } from '@/services/geofencingService';
 import { useEffect, useState, useMemo, useCallback, useRef, SetStateAction } from 'react';
 import { LocationObject } from 'expo-location';
 import MapView, {PROVIDER_GOOGLE, Marker} from 'react-native-maps';
@@ -189,28 +190,26 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
 
 
 
-  const startGeofencingAsync = () => {
-    if (!location) return;
-    const region = {
-      identifier: 'selected-location',
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-      radius: 100, // in meters
-      notifyOnEntry: true,
-      notifyOnExit: true,
-    };
+  const handleSetReminder = async () => {
+    if (!selectedLocation) {
+      alert('Please select a location on the map first.');
+      return;
+    }
 
-    Location.startGeofencingAsync('geofence-task', [region])
-      .then(() => {
-        console.log('Geofencing started successfully');
-        confirmLocation();
-      })
-      .catch((error) => {
-        console.error('Error starting geofencing:', error);
-      });
-
-
-  }
+    try {
+      // Start geofencing with 150m radius using our service
+      await setupGeofence(
+        selectedLocation.latitude,
+        selectedLocation.longitude,
+        address || 'Designated Area'
+      );
+      alert('Reminder set successfully! You will be notified when you enter this area.');
+      confirmLocation();
+    } catch (error) {
+      alert('Failed to set reminder. Please try again.');
+      console.error(error);
+    }
+  };
 
   
 
@@ -308,12 +307,11 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
 
         <TouchableOpacity
           style={styles.confirmBtn}
-          onPress={confirmLocation}
+          onPress={handleSetReminder}
           disabled={loadingAddress}
         >
-          <ThemedText 
-          onPress={startGeofencingAsync}
-          style={{ color: '#fff', fontWeight: '600' }}>Confirm</ThemedText>
+          <ThemedText
+          style={{ color: '#fff', fontWeight: '600' }}>Set Reminder</ThemedText>
         </TouchableOpacity>
       </ThemedView>
 

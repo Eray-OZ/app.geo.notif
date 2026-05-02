@@ -5,17 +5,16 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import * as Location from 'expo-location/build/Location';
-import * as TaskManager from 'expo-task-manager';
+import { requestGeofencingPermissions } from '@/services/geofencingService';
 
 
 
 Notifications.setNotificationHandler({
-  handleNotification: async () : Promise<Notifications.NotificationBehavior> => ({
+  handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
-    shouldShowBanner: true,    
+    shouldShowBanner: true,
     shouldShowList: true,
   }),
 });
@@ -35,31 +34,7 @@ export default function RootLayout() {
 
 
   useEffect(() => {
-    const getPermissions = async () : Promise<void> => {
-      const { status } = await Notifications.requestPermissionsAsync();
-      
-      if (status !== 'granted') {
-        console.warn('User denied notification permissions.');
-      }
-
-   
-      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-  
-      if (foregroundStatus !== 'granted') {
-    console.log('Foreground permission denied.');
-    return;
-  }
-
-    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-
-    if (backgroundStatus === 'granted') {
-    console.log('Background permission granted.');
-  } else {
-    console.log('Background permission denied. Geofencing will not work.');
-  }
-
-    };
-    void getPermissions();
+    requestGeofencingPermissions();
   }, []);
 
 
