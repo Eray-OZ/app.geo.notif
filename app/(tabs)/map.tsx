@@ -10,7 +10,6 @@ import { debounce } from 'lodash';
 
 
 
-import {onDisplayNotification} from '../_layout';
 
 
 export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: number; lng: number }; address: string }) => void }) {
@@ -186,6 +185,33 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
       
   };
 
+
+
+
+
+  const startGeofencingAsync = () => {
+    if (!location) return;
+    const region = {
+      identifier: 'selected-location',
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      radius: 100, // in meters
+      notifyOnEntry: true,
+      notifyOnExit: true,
+    };
+
+    Location.startGeofencingAsync('geofence-task', [region])
+      .then(() => {
+        console.log('Geofencing started successfully');
+        confirmLocation();
+      })
+      .catch((error) => {
+        console.error('Error starting geofencing:', error);
+      });
+
+
+  }
+
   
 
 
@@ -285,7 +311,9 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
           onPress={confirmLocation}
           disabled={loadingAddress}
         >
-          <ThemedText style={{ color: '#fff', fontWeight: '600' }}>Confirm</ThemedText>
+          <ThemedText 
+          onPress={startGeofencingAsync}
+          style={{ color: '#fff', fontWeight: '600' }}>Confirm</ThemedText>
         </TouchableOpacity>
       </ThemedView>
 

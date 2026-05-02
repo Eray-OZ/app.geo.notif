@@ -3,7 +3,24 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import notifee from '@notifee/react-native';
+import * as Notifications from 'expo-notifications';
+import { useEffect } from 'react';
+import * as Location from 'expo-location/build/Location';
+
+
+
+
+Notifications.setNotificationHandler({
+  handleNotification: async () : Promise<Notifications.NotificationBehavior> => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,    
+    shouldShowList: true,
+  }),
+});
+
+
 
 
 
@@ -13,37 +30,39 @@ export const unstable_settings = {
 
 
 
-
- export async function onDisplayNotification() {
-    // Request permissions (required for iOS)
-    await notifee.requestPermission()
-
-    // Create a channel (required for Android)
-    const channelId = await notifee.createChannel({
-      id: 'default',
-      name: 'Default Channel',
-    });
-
-    // Display a notification
-    await notifee.displayNotification({
-      title: 'Notification Title',
-      body: 'Main body content of the notification',
-      android: {
-        channelId,
-        smallIcon: 'name-of-a-small-icon', // optional, defaults to 'ic_launcher'.
-        // pressAction is needed if you want the notification to open the app when pressed
-        pressAction: {
-          id: 'default',
-        },
-      },
-    });
-  }
-
-
-
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+
+  useEffect(() => {
+    const getPermissions = async () : Promise<void> => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      
+      if (status !== 'granted') {
+        console.warn('User denied notification permissions.');
+      }
+
+   
+      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+  
+      if (foregroundStatus !== 'granted') {
+    console.log('Foreground permission denied.');
+    return;
+  }
+
+    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+
+    if (backgroundStatus === 'granted') {
+    console.log('Background permission granted.');
+  } else {
+    console.log('Background permission denied. Geofencing will not work.');
+  }
+
+    };
+    void getPermissions();
+  }, []);
+
+
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
