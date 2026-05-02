@@ -1,11 +1,10 @@
-import { StyleSheet, ActivityIndicator, StatusBar, TextInput, TouchableOpacity, FlatList} from 'react-native';
+import { StyleSheet, ActivityIndicator, StatusBar, TextInput, TouchableOpacity, FlatList, Image} from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import * as Location from 'expo-location';
 import { useEffect, useState, useMemo, useCallback, useRef, SetStateAction } from 'react';
 import { LocationObject } from 'expo-location';
 import MapView, {PROVIDER_GOOGLE, Marker} from 'react-native-maps';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { LatLng } from 'react-native-maps';
 
 
@@ -18,9 +17,7 @@ import { debounce } from 'lodash';
 
 export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: number; lng: number }; address: string }) => void }) {
 
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo ( () => ['25%', '50%', '70%', '100%'], []);
-
+ 
 
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -52,12 +49,10 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
 
 
   const handleMapPress = async (event: any) => {
-  console.log("Map pressed!"); 
   const coords = event.nativeEvent.coordinate;
   if (coords) {
-    console.log("Lat:", coords.latitude);
-    console.log("Long:", coords.longitude);
-    setSelectedLocation(coords);  }
+    reverseGeocodeDebounced(coords.latitude, coords.longitude);
+  }
 };
 
 
@@ -117,7 +112,8 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
           json.results.length > 0
         ) {
           setAddress(json.results[0].formatted_address);
-          console.log('Address:', json.results[0].formatted_address);
+
+          setSelectedLocation({ latitude: lat, longitude: lng });
         } else {
           setAddress('');
         }
@@ -155,6 +151,7 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
       setPredictions([]);
     }
   }, 300);
+
   const onSelectPrediction = async (place: { description: SetStateAction<string>; place_id: any; }) => {
     setQuery(place.description);
     setPredictions([]);
@@ -182,6 +179,7 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
         coords: { lat: region.latitude ?? 0, lng: region.longitude ?? 0},
         address,
       });
+      
   };
 
   
@@ -251,9 +249,36 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
           onPress={handleMapPress}
         >
           { selectedLocation != null && (
-        <Marker coordinate={selectedLocation!}/>
+        <Marker coordinate={selectedLocation}/>
            )}
         </MapView>
+
+
+
+
+
+
+      <ThemedView style={styles.addressCard}>
+        <ThemedView style={{ flex: 1 }}>
+          {loadingAddress ? (
+            <ActivityIndicator />
+          ) : (
+            <>
+              <ThemedText style={styles.addressLabel}>Selected address</ThemedText>
+              <ThemedText numberOfLines={2} style={styles.addressText}>
+                {address}
+              </ThemedText>
+            </>
+          )}
+        </ThemedView>
+        <TouchableOpacity
+          style={styles.confirmBtn}
+          onPress={confirmLocation}
+          disabled={loadingAddress}
+        >
+          <ThemedText style={{ color: '#fff', fontWeight: '600' }}>Confirm</ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
 
 
         </ThemedView>
@@ -313,5 +338,27 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   suggestionItem: { padding: 12, borderBottomWidth: 0.5, borderColor: '#fff'},
+  addressCard: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 20,
+    zIndex: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 6,
+  },
+  addressLabel: { fontSize: 12, color: '#000', backgroundColor: '#fff'},
+  addressText: { fontSize: 14, fontWeight: '600', color: '#000', backgroundColor: '#fff'},
+  confirmBtn: {
+    backgroundColor: '#ff4d4d',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginLeft: 12,
+  },
 
 });
