@@ -1,11 +1,11 @@
-import { StyleSheet, ActivityIndicator, StatusBar, TextInput, TouchableOpacity, FlatList, Button} from 'react-native';
+import { StyleSheet, ActivityIndicator, StatusBar, TextInput, TouchableOpacity, FlatList, Button, Modal, Pressable, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import * as Location from 'expo-location';
 import { setupGeofence } from '@/services/geofencingService';
 import { useEffect, useState, useMemo, useCallback, useRef, SetStateAction } from 'react';
 import { LocationObject } from 'expo-location';
-import MapView, {PROVIDER_GOOGLE, Marker} from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import { LatLng } from 'react-native-maps';
 import { debounce } from 'lodash';
 
@@ -13,30 +13,32 @@ import { debounce } from 'lodash';
 
 
 
-export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: number; lng: number }; address: string }) => void }) {
+export default function Map({ onConfirm }: { onConfirm?: (loc: { coords: { lat: number; lng: number }; address: string }) => void }) {
 
 
 
- 
+
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<LatLng | null>(location ? location.coords : null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [note, setNote] = useState('');
 
 
 
 
   interface PlacePrediction {
-  description: string;
-  place_id: string;
-}
+    description: string;
+    place_id: string;
+  }
 
   const mapRef = useRef<MapView | null>(null);
   const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_MAPS_API_KEY;
   const [address, setAddress] = useState('');
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [query, setQuery] = useState('');
-  const [predictions, setPredictions] = useState<PlacePrediction[]>([]); 
+  const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [region, setRegion] = useState({
     latitude: location?.coords.latitude,
     longitude: location?.coords.longitude,
@@ -44,17 +46,16 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
     longitudeDelta: 0.012,
   });
 
-  
+
 
 
   const handleMapPress = async (event: any) => {
-  const {coords, name} = event.nativeEvent.coordinate;
-  if (coords) {
-    reverseGeocodeDebounced(coords.latitude, coords.longitude);
-    setQuery(name);
-
-  }
-};
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    if (latitude && longitude) {
+      reverseGeocodeDebounced(latitude, longitude);
+      setQuery('');
+    }
+  };
 
 
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setErrorMsg('Permission to access location was denied.');
-        return; 
+        return;
       }
       let lastKnownLocation = await Location.getLastKnownPositionAsync();
       if (lastKnownLocation) {
@@ -87,13 +88,13 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
         subscription.remove();
       }
     };
-  }, []); 
+  }, []);
 
 
 
 
 
-   // Debounced reverse geocode (called onRegionChangeComplete)
+  // Debounced reverse geocode (called onRegionChangeComplete)
   const reverseGeocodeDebounced = useCallback(
     debounce(async (lat, lng) => {
       if (!GOOGLE_API_KEY) {
@@ -131,7 +132,7 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
 
 
 
-   // Places autocomplete
+  // Places autocomplete
   const fetchAutocomplete = debounce(async (text) => {
     if (!text || !GOOGLE_API_KEY) {
       setPredictions([]);
@@ -180,30 +181,36 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
   const confirmLocation = () => {
     onConfirm &&
       onConfirm({
-        coords: { lat: region.latitude ?? 0, lng: region.longitude ?? 0},
+        coords: { lat: region.latitude ?? 0, lng: region.longitude ?? 0 },
         address,
       });
-      
+
   };
 
 
 
 
 
-  const handleSetReminder = async () => {
+  const handleSetReminder = () => {
     if (!selectedLocation) {
       alert('Please select a location on the map first.');
       return;
     }
+    setIsModalVisible(true);
+  };
 
+  const confirmReminder = async () => {
     try {
-      // Start geofencing with 150m radius using our service
+      // Start geofencing with 150m radius and user's custom note
       await setupGeofence(
-        selectedLocation.latitude,
-        selectedLocation.longitude,
-        address || 'Designated Area'
+        selectedLocation!.latitude,
+        selectedLocation!.longitude,
+        address || 'Selected Location',
+        note
       );
-      alert('Reminder set successfully! You will be notified when you enter this area.');
+      alert('Reminder set successfully!');
+      setIsModalVisible(false);
+      setNote('');
       confirmLocation();
     } catch (error) {
       alert('Failed to set reminder. Please try again.');
@@ -211,7 +218,7 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
     }
   };
 
-  
+
 
 
 
@@ -219,106 +226,141 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
     <ThemedView className="flex-1 items-center justify-center p-4">
 
       <StatusBar barStyle="light-content" />
-      
+
       {errorMsg ? (
         <ThemedText>{errorMsg}</ThemedText>
-      ) : 
-      !location ? (
-        <ActivityIndicator size="large" color="#0000ff" />
       ) :
-      (
-        <ThemedView style={{ top:30}}>
-          <ThemedView style={styles.searchRow}>
-          <TextInput
-          placeholder="Search for area or address"
-          value={query}
-          onChangeText={(t) => {
-            setQuery(t);
-            fetchAutocomplete(t);
-          }}
-        />
-        </ThemedView>
+        !location ? (
+          <ActivityIndicator size="large" color="#0000ff" />
+        ) :
+          (
+            <ThemedView style={{ top: 30 }}>
+              <ThemedView style={styles.searchRow}>
+                <TextInput
+                  placeholder="Search for area or address"
+                  value={query}
+                  onChangeText={(t) => {
+                    setQuery(t);
+                    fetchAutocomplete(t);
+                  }}
+                />
+              </ThemedView>
 
 
 
-        {predictions.length > 0 && (
-        <ThemedView style={styles.suggestions}>
-          <FlatList
-            keyboardShouldPersistTaps="always"
-            data={predictions}
-            keyExtractor={(i) => i.place_id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.suggestionItem}
-                onPress={() => onSelectPrediction(item)}
+              {predictions.length > 0 && (
+                <ThemedView style={styles.suggestions}>
+                  <FlatList
+                    keyboardShouldPersistTaps="always"
+                    data={predictions}
+                    keyExtractor={(i) => i.place_id}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.suggestionItem}
+                        onPress={() => onSelectPrediction(item)}
+                      >
+                        <ThemedText style={{ color: '#000' }} numberOfLines={1}>
+                          {item.description}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </ThemedView>
+              )}
+
+              <MapView
+                style={styles.map}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={{
+                  latitude: location?.coords.latitude,
+                  longitude: location?.coords.longitude,
+                  latitudeDelta: 0.0922,
+                  longitudeDelta: 0.0421,
+                }}
+                showsUserLocation={!!location}
+                onPress={handleMapPress}
+                onPoiClick={(e) => {
+                  const { coordinate, name } = e.nativeEvent;
+                  reverseGeocodeDebounced(coordinate.latitude, coordinate.longitude);
+                  setQuery(name);
+                }}
+                ref={mapRef}
               >
-                <ThemedText style={{ color: '#000' }} numberOfLines={1}>
-                  {item.description}
-                </ThemedText>
-              </TouchableOpacity>
-            )}
-          />
-        </ThemedView>
-      )}
-
-        <MapView
-          style={styles.map}
-          provider={PROVIDER_GOOGLE}
-          initialRegion={{
-            latitude: location?.coords.latitude,
-            longitude: location?.coords.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-          showsUserLocation={!!location}
-          onPress={handleMapPress}
-          onPoiClick={(e) => {
-            const { coordinate, name } = e.nativeEvent;
-            reverseGeocodeDebounced(coordinate.latitude, coordinate.longitude);
-            setQuery(name);
-          }}
-          ref={mapRef}
-        >
-          { selectedLocation != null && (
-        <Marker coordinate={selectedLocation}/>
-           )}
-        </MapView>
+                {selectedLocation != null && (
+                  <Marker coordinate={selectedLocation} />
+                )}
+              </MapView>
 
 
 
 
 
 
-      <ThemedView style={styles.addressCard}>
-        <ThemedView style={{ flex: 1 }}>
-          {loadingAddress ? (
-            <ActivityIndicator />
-          ) : (
-            <>
-              <ThemedText style={styles.addressLabel}>Selected address</ThemedText>
-              <ThemedText numberOfLines={2} style={styles.addressText}>
-                {address}
-              </ThemedText>
-            </>
+              <ThemedView style={styles.addressCard}>
+                <ThemedView style={{ flex: 1 }}>
+                  {loadingAddress ? (
+                    <ActivityIndicator />
+                  ) : (
+                    <>
+                      <ThemedText style={styles.addressLabel}>Selected address</ThemedText>
+                      <ThemedText numberOfLines={2} style={styles.addressText}>
+                        {address}
+                      </ThemedText>
+                    </>
+                  )}
+                </ThemedView>
+
+
+
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={handleSetReminder}
+                  disabled={loadingAddress}
+                >
+                  <ThemedText
+                    style={{ color: '#fff', fontWeight: '600' }}>Set Reminder</ThemedText>
+                </TouchableOpacity>
+              </ThemedView>
+
+              {/* Note Entry Modal */}
+              <Modal
+                animationType="slide"
+                transparent={true}
+                visible={isModalVisible}
+                onRequestClose={() => setIsModalVisible(false)}
+              >
+                <View style={styles.modalOverlay}>
+                  <View style={styles.modalContent}>
+                    <ThemedText style={styles.modalTitle}>Add a Note</ThemedText>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="What should we remind you?"
+                      placeholderTextColor="#999"
+                      multiline
+                      value={note}
+                      onChangeText={setNote}
+                    />
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity 
+                        style={[styles.modalBtn, styles.cancelBtn]} 
+                        onPress={() => setIsModalVisible(false)}
+                      >
+                        <ThemedText style={{color: '#666'}}>Cancel</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.modalBtn, styles.saveBtn]} 
+                        onPress={confirmReminder}
+                      >
+                        <ThemedText style={{color: '#fff', fontWeight: '600'}}>Save</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              </Modal>
+
+            </ThemedView>
           )}
-        </ThemedView>
 
-
-
-        <TouchableOpacity
-          style={styles.confirmBtn}
-          onPress={handleSetReminder}
-          disabled={loadingAddress}
-        >
-          <ThemedText
-          style={{ color: '#fff', fontWeight: '600' }}>Set Reminder</ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
-
-
-        </ThemedView>
-      )}
- 
     </ThemedView>
   );
 }
@@ -338,7 +380,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-    container: {
+  container: {
     flex: 1,
     backgroundColor: 'grey',
     padding: 24,
@@ -348,7 +390,7 @@ const styles = StyleSheet.create({
     padding: 36,
     alignItems: 'center',
   },
-    searchRow: {
+  searchRow: {
     position: 'absolute',
     top: 12,
     left: 12,
@@ -361,7 +403,7 @@ const styles = StyleSheet.create({
     padding: 8,
     elevation: 6,
   },
-    suggestions: {
+  suggestions: {
     position: 'absolute',
     top: 64,
     left: 12,
@@ -372,7 +414,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     elevation: 8,
   },
-  suggestionItem: { padding: 12, borderBottomWidth: 0.5, borderColor: '#fff'},
+  suggestionItem: { padding: 12, borderBottomWidth: 0.5, borderColor: '#fff' },
   addressCard: {
     position: 'absolute',
     left: 12,
@@ -386,8 +428,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 6,
   },
-  addressLabel: { fontSize: 12, color: '#000', backgroundColor: '#fff'},
-  addressText: { fontSize: 14, fontWeight: '600', color: '#000', backgroundColor: '#fff'},
+  addressLabel: { fontSize: 12, color: '#000', backgroundColor: '#fff' },
+  addressText: { fontSize: 14, fontWeight: '600', color: '#000', backgroundColor: '#fff' },
   confirmBtn: {
     backgroundColor: '#ff4d4d',
     paddingVertical: 10,
@@ -395,5 +437,49 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginLeft: 12,
   },
-
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#000',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+    color: '#000',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  modalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+  },
+  cancelBtn: {
+    backgroundColor: '#f0f0f0',
+  },
+  saveBtn: {
+    backgroundColor: '#ff4d4d',
+  },
 });

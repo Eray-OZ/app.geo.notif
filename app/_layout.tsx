@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { requestGeofencingPermissions } from '@/services/geofencingService';
+import '@/services/geofencingService'; // Ensure the background task is registered
 
 
 
@@ -18,6 +19,16 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+// Configure notification channel for Android
+if (require('react-native').Platform.OS === 'android') {
+  Notifications.setNotificationChannelAsync('default', {
+    name: 'default',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#FF231F7C',
+  });
+}
 
 
 
