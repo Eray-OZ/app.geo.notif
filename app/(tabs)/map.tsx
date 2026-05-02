@@ -49,9 +49,11 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
 
 
   const handleMapPress = async (event: any) => {
-  const coords = event.nativeEvent.coordinate;
+  const {coords, name} = event.nativeEvent.coordinate;
   if (coords) {
     reverseGeocodeDebounced(coords.latitude, coords.longitude);
+    setQuery(name);
+
   }
 };
 
@@ -130,8 +132,6 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
 
 
 
-
-
    // Places autocomplete
   const fetchAutocomplete = debounce(async (text) => {
     if (!text || !GOOGLE_API_KEY) {
@@ -151,6 +151,8 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
       setPredictions([]);
     }
   }, 300);
+
+
 
   const onSelectPrediction = async (place: { description: SetStateAction<string>; place_id: any; }) => {
     setQuery(place.description);
@@ -173,6 +175,9 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
       console.warn('place details fetch failed', e);
     }
   };
+
+
+
   const confirmLocation = () => {
     onConfirm &&
       onConfirm({
@@ -247,6 +252,11 @@ export default function Map({onConfirm}: { onConfirm?: (loc: { coords: { lat: nu
           }}
           showsUserLocation={!!location}
           onPress={handleMapPress}
+          onPoiClick={(e) => {
+            const { coordinate, name } = e.nativeEvent;
+            reverseGeocodeDebounced(coordinate.latitude, coordinate.longitude);
+            setQuery(name);
+          }}
         >
           { selectedLocation != null && (
         <Marker coordinate={selectedLocation}/>
